@@ -3,13 +3,16 @@ ESP32 software for building a Foxhunt rabbit.
 
 # Library Requirements
 XT_DAC_Audio: https://www.xtronical.com/the-dacaudio-library-download-and-installation/
+
 Morse: https://github.com/basepr1me/Morse
+
 AsyncTCP: https://github.com/me-no-dev/AsyncTCP
+
 ESPAsyncWebServer: https://github.com/me-no-dev/ESPAsyncWebServer
 
 # audio_call.h information
 A file called audio_call.h is required for this to run. Obviously, I'm not going
-to up load my club's audio file, because it is only legal for club members to
+to upload my club's audio file, because it is only legal for club members to
 use it.
 
 To create your own file, the following website has the information you need: https://circuitdigest.com/microcontroller-projects/esp32-based-audio-player
