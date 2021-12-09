@@ -47,7 +47,7 @@
 /* our station operator should be the only connection */
 #define MAX_CLIENTS	 1
 
-#define RED_LED		 34
+#define RED_LED		 34 // 2 DEVKIT1 onboard LED pin
 #define	GREEN_LED	 35
 #define BLUE_LED	 32
 
@@ -408,8 +408,11 @@ void
 set_red(void)
 {
 	morse.watchdog();
-	if (!morse.transmitting()) {
-		delay(2000);
+	if (morse.transmitting())
+		red_start_millis = millis();
+
+	if (!morse.transmitting() && tx_current_millis - red_start_millis >=
+	    ONE_SECOND * 2) {
 		morse.tx_gpio(ar);
-	} 
+	}
 }
