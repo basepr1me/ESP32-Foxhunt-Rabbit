@@ -47,7 +47,7 @@
 /* our station operator should be the only connection */
 #define MAX_CLIENTS	 1
 
-#define RED_LED		 2 //34
+#define RED_LED		 34
 #define	GREEN_LED	 35
 #define BLUE_LED	 32
 
