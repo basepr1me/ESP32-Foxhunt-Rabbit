@@ -24,7 +24,8 @@
  * D19 - Transmit optical relay
  * D18 - Transmitter POWER relay
  * D25 - Audio out
- * D26 - Audio in
+ * D33 - Audio in
+ * D26 - Morse out
  *
  * # If we have enough memory leftover
  * CLUB/R OFF		# Power Transmitter Off
@@ -47,7 +48,7 @@
 /* our station operator should be the only connection */
 #define MAX_CLIENTS	 1
 
-#define RED_LED		 34 // 2 DEVKIT1 onboard LED pin
+#define RED_LED		 2 //34 // 2 DEVKIT1 onboard LED pin
 #define	GREEN_LED	 35
 #define BLUE_LED	 32
 
@@ -60,6 +61,7 @@
 
 #define ONE_SECOND	 1000
 
+#define MORSE_OUT	 26
 #define AUDIO_OUT	 25
 #define AUDIO_IN	 33
 
@@ -68,10 +70,12 @@
 
 #define WPM		 10
 
-/* AR */
-Morse			 morse(WPM, RED_LED);
-String			 ar = "`ar`";
-String			 tx_morse = "de the clubcall rabbit";
+/* Morse */
+Morse			 morse_led(M_GPIO, RED_LED, WPM);
+Morse			 morse_dac(M_DAC, MORSE_OUT, WPM);
+
+String			 led_morse = "`ar`";
+String			 dac_morse = "de the clubcall rabbit";
 
 /* my_ssid will be used for the web interface header */
 const char		*my_ssid = "Club Rabbit 1";
@@ -168,7 +172,7 @@ setup()
 				digitalWrite(RED_LED, LOW);
 				digitalWrite(GREEN_LED, LOW);
 			} else {
-				morse.tx_stop();
+				morse_led.gpio_tx_stop();
 				digitalWrite(RED_LED, HIGH);
 			}
 
@@ -209,6 +213,7 @@ setup()
 	transmit_start_millis = millis();
 	green_start_millis = millis();
 	red_start_millis = millis();
+powered=0;
 }
 
 void
@@ -233,9 +238,12 @@ loop()
 void
 handle_transmission(void)
 {
-	DacAudio.FillBuffer();
+	if (cw)
+		morse_dac.dac_watchdog();
+	else
+		DacAudio.FillBuffer();
 
-	if (hunting && !play && !playing && Sound.Playing == false
+	if (hunting && !play && !playing && !Sound.Playing
 	    && transmit_now > 0 && tx_current_millis - countdown_timer_millis >=
 	    ONE_SECOND && powered) {
 		events.send(String((transmit_now - (millis() -
@@ -243,7 +251,8 @@ handle_transmission(void)
 		countdown_timer_millis = tx_current_millis;
 	}
 
-	if (hunting && !play && !playing && Sound.Playing == false &&
+	if (hunting && !play && !playing &&
+	    (!Sound.Playing || !morse_dac.dac_transmitting()) &&
 	    (tx_current_millis - transmit_start_millis >= transmit_now &&
 	     powered)) {
 		digitalWrite(BLUE_LED, HIGH);
@@ -268,7 +277,7 @@ handle_transmission(void)
 		play = 1;
 	}
 
-	if (hunting && play && Sound.Playing == false) {
+	if (hunting && play && !Sound.Playing && !cw) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			DPRINTF("Play audio", 0);
 			DacAudio.Play(&Sound);
@@ -276,16 +285,25 @@ handle_transmission(void)
 			play = 0;
 			transmit_end = 1;
 		}
+	} else if (hunting && play && !morse_dac.dac_transmitting() && cw) {
+		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
+			DPRINTF("Send CW", 0);
+			morse_dac.dac_tx(dac_morse);
+			playing = 1;
+			play = 0;
+			transmit_end = 1;
+		}
 	}
 
-	if (transmit_end && playing && Sound.Playing == false) {
+	if (transmit_end && playing &&
+	    (!Sound.Playing || !morse_dac.dac_transmitting())) {
 		transmit_start_millis = tx_current_millis;
 		countdown_timer_millis = tx_current_millis;
 		countdown_millis = tx_current_millis;
 		transmit_end = 0;
 	}
 
-	if (playing && Sound.Playing == false) {
+	if (playing && (!Sound.Playing || !morse_dac.dac_transmitting())) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			DPRINTF("End transmission", 0);
 			DPRINTF("", 0);
@@ -407,12 +425,12 @@ set_green(void)
 void
 set_red(void)
 {
-	morse.watchdog();
-	if (morse.transmitting())
+	morse_led.gpio_watchdog();
+	if (morse_led.gpio_transmitting())
 		red_start_millis = millis();
 
-	if (!morse.transmitting() && tx_current_millis - red_start_millis >=
-	    ONE_SECOND * 2) {
-		morse.tx_gpio(ar);
+	if (!morse_led.gpio_transmitting() && tx_current_millis -
+	    red_start_millis >= ONE_SECOND * 2) {
+		morse_led.gpio_tx(led_morse);
 	}
 }
