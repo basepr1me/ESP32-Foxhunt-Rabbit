@@ -106,6 +106,12 @@ const char index_html[] PROGMEM = R"rawliteral(
 				else if (e.data == "disable")
 					document.getElementById("trans_now").setAttribute("disabled", "disabled");
 			}, false);
+			source.addEventListener("cwbox", function (e) {
+				if (e.data == "enable")
+					document.getElementById("cwbox").removeAttribute("disabled");
+				else if (e.data == "disable")
+					document.getElementById("cwbox").setAttribute("disabled", "disabled");
+			}, false);
 		}
 
 		function start_hunt(element) {

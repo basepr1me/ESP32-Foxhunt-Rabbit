@@ -61,7 +61,7 @@
 
 #define ONE_SECOND	 1000
 
-#define MORSE_OUT	 2 //26
+#define MORSE_OUT	 26
 #define AUDIO_OUT	 25
 #define AUDIO_IN	 33
 
@@ -226,6 +226,11 @@ loop()
 {
 	tx_current_millis = millis();
 
+	if (cw)
+		playing = morse_dac.dac_transmitting();
+	else
+		playing = Sound.Playing;
+
 	handle_transmission();
 
 	if (hunting && powered)
@@ -248,23 +253,21 @@ handle_transmission(void)
 	else
 		DacAudio.FillBuffer();
 
-	if (hunting && !play && !playing && !Sound.Playing
-	    && transmit_now > 0 && tx_current_millis - countdown_timer_millis >=
-	    ONE_SECOND && powered) {
+	if (hunting && !play && !playing && transmit_now > 0 && powered &&
+	    tx_current_millis - countdown_timer_millis >= ONE_SECOND) {
 		events.send(String((transmit_now - (millis() -
 		    countdown_millis)) / 1000).c_str(), "count", millis());
 		countdown_timer_millis = tx_current_millis;
 	}
 
-	if (hunting && !play && !playing &&
-	    (!Sound.Playing) &&
-	    (tx_current_millis - transmit_start_millis >= transmit_now &&
-	     powered)) {
+	if (hunting && !play && !playing && powered &&
+	    (tx_current_millis - transmit_start_millis >= transmit_now)) {
 		digitalWrite(BLUE_LED, HIGH);
 		digitalWrite(TRANSMIT, HIGH);
 		DPRINTF("Transmitting", 0);
 		transmit_start_millis = tx_current_millis;
 		events.send("disable", "tnbutton", millis());
+		events.send("disable", "cwbox", millis());
 		events.send("TX", "count", millis());
 		if (rand_num) {
 			transmit_now = random(TRANSMIT_MIN,
@@ -283,41 +286,40 @@ handle_transmission(void)
 		play = 1;
 	}
 
-	if (hunting && play && !Sound.Playing && !cw) {
+	if (hunting && play && !playing && !cw) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			DPRINTF("Play audio", 0);
 			DacAudio.Play(&Sound);
-			playing = 1;
 			play = 0;
 			transmit_end = 1;
 		}
-	} else if (hunting && play && !morse_dac.dac_transmitting() && cw) {
+	} else if (hunting && play && !playing && cw) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			DPRINTF("Send CW", 0);
 			morse_dac.dac_tx(dac_morse);
-			playing = 1;
 			play = 0;
 			transmit_end = 1;
 		}
 	}
 
-	if (transmit_end && playing &&
-	    (!Sound.Playing)) {
+	if (transmit_end && playing) {
 		transmit_start_millis = tx_current_millis;
 		countdown_timer_millis = tx_current_millis;
 		countdown_millis = tx_current_millis;
-		transmit_end = 0;
+		transmit_end = 2;
 	}
 
-	if (playing && (!Sound.Playing)) {
+	if (!playing && transmit_end == 2) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			events.send("enable", "tnbutton", millis());
+			events.send("enable", "cwbox", millis());
 			DPRINTF("End transmission", 0);
 			DPRINTF("", 0);
 			digitalWrite(BLUE_LED, LOW);
 			digitalWrite(TRANSMIT, LOW);
 			transmit_start_millis = tx_current_millis;
 			playing = 0;
+			transmit_end = 0;
 		}
 	}
 }
