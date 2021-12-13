@@ -100,6 +100,12 @@ const char index_html[] PROGMEM = R"rawliteral(
 			source.addEventListener("count", function (e) {
 				document.getElementById("transmit").innerHTML = e.data;
 			}, false);
+			source.addEventListener("tnbutton", function (e) {
+				if (e.data == "enable")
+					document.getElementById("trans_now").removeAttribute("disabled");
+				else if (e.data == "disable")
+					document.getElementById("trans_now").setAttribute("disabled", "disabled");
+			}, false);
 		}
 
 		function start_hunt(element) {
@@ -109,6 +115,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 			element.setAttribute("disabled", "disabled");
 			document.getElementById("stop").removeAttribute("disabled");
 			document.getElementById("hunting").innerHTML = "Hunt is on";
+			document.getElementById("trans_now").removeAttribute("disabled");
 		}
 
 		function stop_hunt(element) {
@@ -119,6 +126,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 			document.getElementById("start").removeAttribute("disabled");
 			document.getElementById("hunting").innerHTML = "Hunt is off";
 			document.getElementById("transmit").innerHTML = "---";
+			document.getElementById("trans_now").setAttribute("disabled", "disabled");
 		}
 
 		function power_on(element) {
@@ -142,6 +150,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 			document.getElementById("stop").setAttribute("disabled", "disabled");
 			document.getElementById("hunting").innerHTML = "Hunt is off";
 			document.getElementById("transmit").innerHTML = "---";
+			document.getElementById("trans_now").setAttribute("disabled", "disabled");
 		}
 
 		function set_time() {
@@ -158,6 +167,13 @@ const char index_html[] PROGMEM = R"rawliteral(
 				xhr.send();
 				document.getElementById("delay").innerHTML = delay_t;
 			}
+		}
+
+		function trans_now(element) {
+			xhr = new XMLHttpRequest();
+			xhr.open("GET", "/update?trans_now=1", false);
+			xhr.send();
+			element.setAttribute("disabled", "disabled");
 		}
 
 		function toggle_random(element) {
@@ -241,6 +257,12 @@ const char index_html[] PROGMEM = R"rawliteral(
 				<p>TRANSMIT IN</p>
 				<p><span class="status">
 					<span id="transmit">---</span>
+				</span></p>
+			</div>
+			<div class="card">
+				<p>PTT</p>
+				<p><span class="status">
+					%BUTTON6%
 				</span></p>
 			</div>
 		</div>

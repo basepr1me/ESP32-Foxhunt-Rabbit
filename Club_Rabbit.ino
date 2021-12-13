@@ -48,7 +48,7 @@
 /* our station operator should be the only connection */
 #define MAX_CLIENTS	 1
 
-#define RED_LED		 2 //34 // 2 DEVKIT1 onboard LED pin
+#define RED_LED		 34 // 2 DEVKIT1 onboard LED pin
 #define	GREEN_LED	 35
 #define BLUE_LED	 32
 
@@ -61,12 +61,12 @@
 
 #define ONE_SECOND	 1000
 
-#define MORSE_OUT	 26
+#define MORSE_OUT	 2 //26
 #define AUDIO_OUT	 25
 #define AUDIO_IN	 33
 
-#define DPRINTF(x,y)	 do { if (DEBUG) Serial.println(x); Serial2.println(x); \
-			    sleep(y); } while(0)
+#define DPRINTF(x,y)	 do { if (DEBUG) { Serial.println(x); \
+			    Serial2.println(x); sleep(y); }} while(0)
 
 #define WPM		 10
 
@@ -194,6 +194,12 @@ setup()
 			input_message = request->getParam("cw")->value();
 			cw = input_message.toInt();
 		}
+		if (request->hasParam("trans_now")) {
+			DPRINTF("PTT pressed", 0);
+			input_message = request->getParam("trans_now")->value();
+			transmit_now = 0;
+		}
+
 		request->send_P(200, "text/plain", "OK");
 	});
 	server.addHandler(&events);
@@ -213,7 +219,6 @@ setup()
 	transmit_start_millis = millis();
 	green_start_millis = millis();
 	red_start_millis = millis();
-powered=0;
 }
 
 void
@@ -252,13 +257,14 @@ handle_transmission(void)
 	}
 
 	if (hunting && !play && !playing &&
-	    (!Sound.Playing || !morse_dac.dac_transmitting()) &&
+	    (!Sound.Playing) &&
 	    (tx_current_millis - transmit_start_millis >= transmit_now &&
 	     powered)) {
 		digitalWrite(BLUE_LED, HIGH);
 		digitalWrite(TRANSMIT, HIGH);
 		DPRINTF("Transmitting", 0);
 		transmit_start_millis = tx_current_millis;
+		events.send("disable", "tnbutton", millis());
 		events.send("TX", "count", millis());
 		if (rand_num) {
 			transmit_now = random(TRANSMIT_MIN,
@@ -296,15 +302,16 @@ handle_transmission(void)
 	}
 
 	if (transmit_end && playing &&
-	    (!Sound.Playing || !morse_dac.dac_transmitting())) {
+	    (!Sound.Playing)) {
 		transmit_start_millis = tx_current_millis;
 		countdown_timer_millis = tx_current_millis;
 		countdown_millis = tx_current_millis;
 		transmit_end = 0;
 	}
 
-	if (playing && (!Sound.Playing || !morse_dac.dac_transmitting())) {
+	if (playing && (!Sound.Playing)) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
+			events.send("enable", "tnbutton", millis());
 			DPRINTF("End transmission", 0);
 			DPRINTF("", 0);
 			digitalWrite(BLUE_LED, LOW);
@@ -345,6 +352,11 @@ handle_connect(const String& var)
 		button5 += " disabled";
 	button5 += ">Power Off Radio</button>";
 
+	String button6 = "<button id=\"trans_now\" onclick=\"trans_now(this)\"";
+	if (!hunting || !power)
+		button6 += " disabled";
+	button6 += ">Transmit Now</button>";
+
 	String box1 = "<input id=\"randbox\" type=\"checkbox\"";
 	if (rand_num)
 		box1 += " checked";
@@ -379,6 +391,8 @@ handle_connect(const String& var)
 		return button4;
 	if (var == "BUTTON5")
 		return button5;
+	if (var == "BUTTON6")
+		return button6;
 	if (var == "DELAY") {
 		if (transmit_now)
 			return String(transmit_now / ONE_SECOND);
