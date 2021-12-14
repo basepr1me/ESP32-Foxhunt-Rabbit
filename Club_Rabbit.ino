@@ -43,7 +43,7 @@
 #include "audio_call.h"
 #include "html.h"
 
-#define DEBUG		 1
+#define DEBUG		 0
 
 /* our station operator should be the only connection */
 #define MAX_CLIENTS	 1
@@ -118,10 +118,12 @@ setup()
 	digitalWrite(TRANSMIT, LOW);
 	digitalWrite(TRANSMIT_PWR, LOW);
 
+#ifdef DEBUG
 	/* setup serial */
 	Serial.begin(115200);
 	Serial2.begin(115200);
 	sleep(1);
+#endif
 
 	DPRINTF("", 1);
 	DPRINTF("Setup serial", 0);
