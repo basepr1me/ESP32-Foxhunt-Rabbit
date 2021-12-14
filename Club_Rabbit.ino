@@ -141,7 +141,7 @@ setup()
 	pinMode(AUDIO_IN, INPUT);
 	DPRINTF("Setup audio", 0);
 	DacAudio.DacVolume = 45;
-	morse_dac.dac_volume = 25;
+	morse_dac.dac_volume = 45;
 	morse_dac.dac_freq = 500;
 
 
@@ -251,6 +251,7 @@ loop()
 void
 handle_transmission(void)
 {
+		morse_dac.dac_watchdog();
 	if (cw)
 		morse_dac.dac_watchdog();
 	else
