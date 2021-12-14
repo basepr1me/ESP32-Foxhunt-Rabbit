@@ -45,8 +45,7 @@
 
 #define DEBUG		 0
 
-/* our station operator should be the only connection */
-#define MAX_CLIENTS	 1
+#define MAX_CLIENTS	 8
 
 #define RED_LED		 34 // 2 DEVKIT1 onboard LED pin
 #define	GREEN_LED	 35
