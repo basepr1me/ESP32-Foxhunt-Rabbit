@@ -142,6 +142,8 @@ setup()
 	DPRINTF("Setup audio", 0);
 	DacAudio.DacVolume = 45;
 	morse_dac.dac_volume = 25;
+	morse_dac.dac_freq = 500;
+
 
 	/* setup our AP */
 	WiFi.mode(WIFI_AP);
