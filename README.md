@@ -27,6 +27,9 @@ const unsigned char audio[######] PROGMEM
 I'm not certain the XT_DAC_Audio writer knows this either.
 
 # WIP
-This is in a WIP state and currently only transmits audio. Sending Morse code is not yet completed.
+This is in a WIP state and currently only transmits audio.
+
+This shouldn't be used by anybody yet. It is still highly experimental and
+subject to large changes.
 
 This style is OpenBSD style and may not look right in the Arduino IDE, since I don't use it.
