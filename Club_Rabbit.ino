@@ -43,7 +43,7 @@
 #include "audio_call.h"
 #include "html.h"
 
-#define DEBUG		 0
+#define DEBUG		 1
 
 #define MAX_CLIENTS	 8
 
@@ -143,8 +143,6 @@ setup()
 	DPRINTF("Setup audio", 0);
 	DacAudio.DacVolume = 45;
 	morse_dac.dac_volume = 45;
-	morse_dac.dac_freq = 500;
-
 
 	/* setup our AP */
 	WiFi.mode(WIFI_AP);
@@ -175,8 +173,9 @@ setup()
 			if (!powered) {
 				digitalWrite(RED_LED, LOW);
 				digitalWrite(GREEN_LED, LOW);
-			} else {
 				morse_led.gpio_tx_stop();
+				morse_dac.dac_tx_stop();
+			} else {
 				digitalWrite(RED_LED, HIGH);
 			}
 
