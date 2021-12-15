@@ -47,9 +47,9 @@
 
 #define MAX_CLIENTS	 8
 
-#define RED_LED		 34 // 2 DEVKIT1 onboard LED pin
-#define	GREEN_LED	 35
-#define BLUE_LED	 32
+#define RED_LED		 14 // 2 DEVKIT1 onboard LED pin
+#define	GREEN_LED	 12
+#define BLUE_LED	 13
 
 #define TRANSMIT	 19
 #define TRANSMIT_PWR	 18	/* LOW - OFF, HIGH - ON (switch LOW - ON) */
@@ -193,6 +193,7 @@ setup()
 			rand_num = input_message.toInt();
 		}
 		if (request->hasParam("cw")) {
+			digitalWrite(GREEN_LED, HIGH);
 			DPRINTF("CW toggled", 0);
 			input_message = request->getParam("cw")->value();
 			cw = input_message.toInt();
