@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2021, 2022 Tracey Emery K7TLE
- *
+*
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
@@ -145,10 +145,22 @@ setup()
 	morse_dac.dac_volume = 45;
 
 	/* setup our AP */
+	/*
+	 * Had to disable these in sdkconfig.h and use simple WiFi to keep
+	 * Android 10 connected. What a PIA
+	 *
+	 * #define CONFIG_ESP32_WIFI_AMPDU_TX_ENABLED 0
+	 * #define CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED 0
+	 */
+
 	WiFi.mode(WIFI_AP);
-	WiFi.softAPConfig(my_ip, my_gw, my_net);
-	WiFi.setTxPower(WIFI_POWER_19_5dBm);
-	WiFi.softAP(my_ssid, my_pass, channel, false, MAX_CLIENTS);
+	WiFi.softAP(my_ssid, my_pass);
+
+	/* WiFi.mode(WIFI_AP); */
+	/* WiFi.softAPConfig(my_ip, my_gw, my_net); */
+	/* WiFi.setTxPower(WIFI_POWER_19_5dBm); */
+	/* WiFi.softAP(my_ssid, my_pass, channel, false, MAX_CLIENTS); */
+
 	DPRINTF("Setup AP", 0);
 
 	/* setup our web server */
