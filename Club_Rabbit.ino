@@ -17,11 +17,11 @@
 /*
  * Watch the order of pins on the board!
  *
- * D34 - Red LED	Power/AR			#Solid/cw
- * D35 - Green LED	Transmitting Voice/cw/Off	#Solid/Blink/Off
- * D32 - Blue LED	Transmitting			#On during transmit
+ * D14 - Red LED	Power/AR			#Solid/cw
+ * D12 - Green LED	Transmitting Voice/cw/Off	#Solid/Blink/Off
+ * D13 - Blue LED	Transmitting			#On during transmit
  *
- * D19 - Transmit optical relay
+ * D5  - Transmit optical relay
  * D18 - Transmitter POWER relay
  * D25 - Audio out
  * D33 - Audio in
@@ -43,15 +43,15 @@
 #include "audio_call.h"
 #include "html.h"
 
-#define DEBUG		 1
+#define DEBUG		 0
 
 #define MAX_CLIENTS	 8
 
-#define RED_LED		 14 // 2 DEVKIT1 onboard LED pin
+#define RED_LED		 14
 #define	GREEN_LED	 12
 #define BLUE_LED	 13
 
-#define TRANSMIT	 19
+#define TRANSMIT	 5
 #define TRANSMIT_PWR	 18	/* LOW - OFF, HIGH - ON (switch LOW - ON) */
 /* #define OPTIONAL	 21 */
 #define TRANSMIT_DELAY	 60	/* seconds */
@@ -67,7 +67,7 @@
 #define DPRINTF(x,y)	 do { if (DEBUG) { Serial.println(x); \
 			    Serial2.println(x); sleep(y); }} while(0)
 
-#define WPM		 10
+#define WPM		 15
 
 /* Morse */
 Morse			 morse_led(M_GPIO, RED_LED, WPM);
@@ -79,9 +79,9 @@ String			 dac_morse = "de the clubcall rabbit";
 /* my_ssid will be used for the web interface header */
 const char		*my_ssid = "Club Rabbit 1";
 const char		*my_pass = "Pass1234";
-IPAddress		 my_ip(192, 168, 5, 1);
-IPAddress		 my_gw(192, 168, 5, 1);
-IPAddress		 my_net(255, 255, 255, 0);
+/* IPAddress		 my_ip(192, 168, 5, 1); */
+/* IPAddress		 my_gw(192, 168, 5, 1); */
+/* IPAddress		 my_net(255, 255, 255, 0); */
 
 AsyncWebServer		 server(80);
 AsyncEventSource	 events("/event");
@@ -141,8 +141,7 @@ setup()
 	pinMode(AUDIO_OUT, OUTPUT);
 	pinMode(AUDIO_IN, INPUT);
 	DPRINTF("Setup audio", 0);
-	DacAudio.DacVolume = 45;
-	morse_dac.dac_volume = 45;
+	DacAudio.DacVolume = 35;
 
 	/* setup our AP */
 	/*
@@ -175,7 +174,13 @@ setup()
 			input_message = request->getParam("hunting")->value();
 			hunting = input_message.toInt();
 			transmit_start_millis = tx_current_millis;
-			digitalWrite(GREEN_LED, HIGH);
+			if (hunting)
+				digitalWrite(GREEN_LED, HIGH);
+			else {
+				morse_led.gpio_tx_stop();
+				morse_dac.dac_tx_stop();
+				digitalWrite(GREEN_LED, LOW);
+			}
 			countdown_millis = millis();
 		}
 		if (request->hasParam("power")) {
@@ -183,12 +188,13 @@ setup()
 			input_message = request->getParam("power")->value();
 			powered = input_message.toInt();
 			if (!powered) {
-				digitalWrite(RED_LED, LOW);
-				digitalWrite(GREEN_LED, LOW);
 				morse_led.gpio_tx_stop();
 				morse_dac.dac_tx_stop();
+				digitalWrite(RED_LED, LOW);
+				digitalWrite(GREEN_LED, LOW);
 			} else {
 				digitalWrite(RED_LED, HIGH);
+				digitalWrite(GREEN_LED, LOW);
 			}
 
 		}
@@ -264,7 +270,6 @@ loop()
 void
 handle_transmission(void)
 {
-		morse_dac.dac_watchdog();
 	if (cw)
 		morse_dac.dac_watchdog();
 	else
