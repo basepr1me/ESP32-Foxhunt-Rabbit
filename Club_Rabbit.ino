@@ -54,9 +54,9 @@
 #define TRANSMIT	 5
 #define TRANSMIT_PWR	 18	/* LOW - OFF, HIGH - ON (switch LOW - ON) */
 /* #define OPTIONAL	 21 */
-#define TRANSMIT_DELAY	 60	/* seconds */
-#define TRANSMIT_MIN	 30	/* seconds */
-#define TRANSMIT_MAX	 120	/* seconds */
+#define TRANSMIT_DELAY	 10	/* seconds */
+#define TRANSMIT_MIN	 10	/* seconds */
+#define TRANSMIT_MAX	 30	/* seconds */
 
 #define ONE_SECOND	 1000
 
@@ -103,8 +103,9 @@ unsigned long		 countdown_millis, red_start_millis;
 
 int			 transmit_now = 0; /* don't delay first */
 int			 hunting = 0, playing = 0, play = 0, voice = 1;
-int			 transmit_end = 0, powered = 1, rand_num = 0, cw = 0;
-int			 send_handle_events = 0, transmit_new;
+int			 transmit_end = 0, powered = 1, rand_num = 1, cw = 1;
+int			 send_handle_events = 0, transmit_new, alt_cw = 0;
+int			 alt = 0;
 
 uint8_t channel =	 3;
 
@@ -141,7 +142,7 @@ setup()
 	pinMode(AUDIO_OUT, OUTPUT);
 	pinMode(AUDIO_IN, INPUT);
 	DPRINTF("Setup audio", 0);
-	DacAudio.DacVolume = 35;
+	/* DacAudio.DacVolume = 35; */
 
 	/* setup our AP */
 	/*
@@ -210,6 +211,11 @@ setup()
 			input_message = request->getParam("rand")->value();
 			rand_num = input_message.toInt();
 		}
+		if (request->hasParam("altcw")) {
+			DPRINTF("Random cw toggled", 0);
+			input_message = request->getParam("altcw")->value();
+			alt_cw = input_message.toInt();
+		}
 		if (request->hasParam("cw")) {
 			digitalWrite(GREEN_LED, HIGH);
 			DPRINTF("CW toggled", 0);
@@ -270,17 +276,21 @@ loop()
 void
 handle_transmission(void)
 {
-	if (cw)
-		morse_dac.dac_watchdog();
-	else
-		DacAudio.FillBuffer();
-
 	if (hunting && !play && !playing && transmit_now > 0 && powered &&
 	    tx_current_millis - countdown_timer_millis >= ONE_SECOND) {
 		events.send(String((transmit_now - (millis() -
 		    countdown_millis)) / 1000).c_str(), "count", millis());
 		countdown_timer_millis = tx_current_millis;
+		if (alt_cw && alt) {
+			cw = !cw;
+			alt = 0;
+		}
 	}
+
+	if (cw)
+		morse_dac.dac_watchdog();
+	else
+		DacAudio.FillBuffer();
 
 	if (hunting && !play && !playing && powered &&
 	    (tx_current_millis - transmit_start_millis >= transmit_now)) {
@@ -290,6 +300,7 @@ handle_transmission(void)
 		transmit_start_millis = tx_current_millis;
 		events.send("disable", "tnbutton", millis());
 		events.send("disable", "cwbox", millis());
+		events.send("disable", "altcwbox", millis());
 		events.send("TX", "count", millis());
 		if (rand_num) {
 			transmit_now = random(TRANSMIT_MIN,
@@ -306,6 +317,7 @@ handle_transmission(void)
 			    "rand", millis());
 		}
 		play = 1;
+		alt = 1;
 	}
 
 	if (hunting && play && !playing && !cw) {
@@ -334,7 +346,9 @@ handle_transmission(void)
 	if (!playing && transmit_end == 2) {
 		if (tx_current_millis - transmit_start_millis >= ONE_SECOND) {
 			events.send("enable", "tnbutton", millis());
-			events.send("enable", "cwbox", millis());
+			events.send("enable", "altcwbox", millis());
+			if (!alt_cw)
+				events.send("enable", "cwbox", millis());
 			DPRINTF("End transmission", 0);
 			DPRINTF("", 0);
 			digitalWrite(BLUE_LED, LOW);
@@ -391,6 +405,11 @@ handle_connect(const String& var)
 		box2 += " checked";
 	box2 += " onchange=\"toggle_cw(this)\" />";
 
+	String box3 = "<input id=\"altcwbox\" type=\"checkbox\"";
+	if (alt_cw)
+		box3 += " checked";
+	box3 += " onchange=\"toggle_alt_cw(this)\" />";
+
 	if (var == "HUNTING") {
 		if (hunting)
 			return "Hunt is on";
@@ -439,6 +458,14 @@ handle_connect(const String& var)
 	}
 	if (var == "RANDBOX")
 		return box1;
+	if (var == "ALTCWSTAT") {
+		if (alt_cw)
+			return "On";
+		else
+			return "Off";
+	}
+	if (var == "ALTCWBOX")
+		return box3;
 	if (var == "CWSTAT") {
 		if (cw)
 			return "Yes";

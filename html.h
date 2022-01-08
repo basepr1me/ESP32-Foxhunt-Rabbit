@@ -87,16 +87,6 @@ const char index_html[] PROGMEM = R"rawliteral(
 			source.addEventListener("rand", function (e) {
 				document.getElementById("delay").innerHTML = e.data;
 			}, false);
-			source.addEventListener("rand_on", function (e) {
-				document.getElementById("rand").innerHTML = "On";
-				document.getElementById("randbox").checked = true;
-				document.getElementById("time").setAttribute("disabled", "disabled");
-				document.getElementById("time_b").setAttribute("disabled", "disabled");
-			}, false);
-			source.addEventListener("cw_on", function (e) {
-				document.getElementById("cw").innerHTML = "Yes";
-				document.getElementById("cwbox").checked = true;
-			}, false);
 			source.addEventListener("count", function (e) {
 				document.getElementById("transmit").innerHTML = e.data;
 			}, false);
@@ -105,6 +95,12 @@ const char index_html[] PROGMEM = R"rawliteral(
 					document.getElementById("trans_now").removeAttribute("disabled");
 				else if (e.data == "disable")
 					document.getElementById("trans_now").setAttribute("disabled", "disabled");
+			}, false);
+			source.addEventListener("altcwbox", function (e) {
+				if (e.data == "enable")
+					document.getElementById("altcwbox").removeAttribute("disabled");
+				else if (e.data == "disable")
+					document.getElementById("altcwbox").setAttribute("disabled", "disabled");
 			}, false);
 			source.addEventListener("cwbox", function (e) {
 				if (e.data == "enable")
@@ -200,6 +196,27 @@ const char index_html[] PROGMEM = R"rawliteral(
 			}
 		}
 
+		function toggle_alt_cw(element) {
+			var cwc = 0;
+			if (document.getElementById("cwbox").checked)
+				cwc = 1;
+			if (element.checked) {
+				xhr = new XMLHttpRequest();
+				xhr.open("GET", "/update?altcw=1&cw="+cwc, false);
+				xhr.send();
+				document.getElementById("alt_cw").innerHTML = "On";
+				document.getElementById("cwbox").setAttribute("disabled", "disabled");
+				document.getElementById("cwbox").setAttribute("disabled", "disabled");
+			} else {
+				xhr = new XMLHttpRequest();
+				xhr.open("GET", "/update?altcw=0&cw="+cwc, false);
+				xhr.send();
+				document.getElementById("alt_cw").innerHTML = "Off";
+				document.getElementById("cwbox").removeAttribute("disabled");
+				document.getElementById("cwbox").removeAttribute("disabled");
+			}
+		}
+
 		function toggle_cw(element) {
 			if (element.checked) {
 				xhr = new XMLHttpRequest();
@@ -244,6 +261,13 @@ const char index_html[] PROGMEM = R"rawliteral(
 					<span id="cw">%CWSTAT%</span>
 				</span></p>
 				<p>%CWBOX%</p>
+			</div>
+			<div class="card">
+				<p>ALTERNATE CW/VOICE</p>
+				<p><span class="status">
+					<span id="alt_cw">%ALTCWSTAT%</span>
+				</span></p>
+				<p>%ALTCWBOX%</p>
 			</div>
 			<div class="card">
 				<p>HUNTING</p>
