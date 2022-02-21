@@ -284,15 +284,15 @@ const char index_html[] PROGMEM = R"rawliteral(
 				<p>%BUTTON4% %BUTTON5%</p>
 			</div>
 			<div class="card">
-				<p>TRANSMIT IN</p>
-				<p><span class="status">
-					<span id="transmit">---</span>
-				</span></p>
-			</div>
-			<div class="card">
 				<p>PTT</p>
 				<p><span class="status">
 					%BUTTON6%
+				</span></p>
+			</div>
+			<div class="card">
+				<p>TRANSMIT IN</p>
+				<p><span class="status">
+					<span id="transmit">%TX%</span>
 				</span></p>
 			</div>
 		</div>

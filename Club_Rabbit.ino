@@ -33,6 +33,8 @@
  * CLUB/R START		# Start Transmitting Audio
  * CLUB/R STOP		# Stop Transmitting Audio
  */
+#include <soc/soc.h>
+#include <soc/rtc_cntl_reg.h>
 
 #include <WiFi.h>
 #include <AsyncTCP.h>
@@ -44,6 +46,7 @@
 #include "html.h"
 
 #define DEBUG		 0
+#define TIMER		 0	/* save some power */
 
 #define MAX_CLIENTS	 8
 
@@ -79,9 +82,9 @@ String			 dac_morse = "de the clubcall rabbit";
 /* my_ssid will be used for the web interface header */
 const char		*my_ssid = "Club Rabbit 1";
 const char		*my_pass = "Pass1234";
-/* IPAddress		 my_ip(192, 168, 5, 1); */
-/* IPAddress		 my_gw(192, 168, 5, 1); */
-/* IPAddress		 my_net(255, 255, 255, 0); */
+IPAddress		 my_ip(192, 168, 5, 1);
+IPAddress		 my_gw(192, 168, 5, 1);
+IPAddress		 my_net(255, 255, 255, 0);
 
 AsyncWebServer		 server(80);
 AsyncEventSource	 events("/event");
@@ -104,14 +107,17 @@ unsigned long		 countdown_millis, red_start_millis;
 int			 transmit_now = 0; /* don't delay first */
 int			 hunting = 0, playing = 0, play = 0, voice = 1;
 int			 transmit_end = 0, powered = 1, rand_num = 1, cw = 1;
-int			 send_handle_events = 0, transmit_new, alt_cw = 0;
-int			 alt = 0;
+int			 send_handle_events = 0, transmit_new, alt_cw = 1;
 
 uint8_t channel =	 3;
 
 void
 setup()
 {
+	/* disable brownout for startup */
+	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+	delay(1000);
+
 	/* immediate pin setup, transmitter shouldn't be on */
 	pinMode(TRANSMIT, OUTPUT);
 	pinMode(TRANSMIT_PWR, OUTPUT);
@@ -153,13 +159,13 @@ setup()
 	 * #define CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED 0
 	 */
 
-	WiFi.mode(WIFI_AP);
-	WiFi.softAP(my_ssid, my_pass);
-
 	/* WiFi.mode(WIFI_AP); */
-	/* WiFi.softAPConfig(my_ip, my_gw, my_net); */
-	/* WiFi.setTxPower(WIFI_POWER_19_5dBm); */
-	/* WiFi.softAP(my_ssid, my_pass, channel, false, MAX_CLIENTS); */
+	/* WiFi.softAP(my_ssid, my_pass); */
+
+	WiFi.mode(WIFI_AP);
+	WiFi.softAPConfig(my_ip, my_gw, my_net);
+	WiFi.setTxPower(WIFI_POWER_19_5dBm);
+	WiFi.softAP(my_ssid, my_pass, channel, false, MAX_CLIENTS);
 
 	DPRINTF("Setup AP", 0);
 
@@ -247,6 +253,10 @@ setup()
 	transmit_start_millis = millis();
 	green_start_millis = millis();
 	red_start_millis = millis();
+
+	/* re-enable brownout */
+	delay(1000);
+	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 }
 
 void
@@ -277,14 +287,11 @@ void
 handle_transmission(void)
 {
 	if (hunting && !play && !playing && transmit_now > 0 && powered &&
-	    tx_current_millis - countdown_timer_millis >= ONE_SECOND) {
+	    tx_current_millis - countdown_timer_millis >= ONE_SECOND &&
+	    TIMER) {
 		events.send(String((transmit_now - (millis() -
 		    countdown_millis)) / 1000).c_str(), "count", millis());
 		countdown_timer_millis = tx_current_millis;
-		if (alt_cw && alt) {
-			cw = !cw;
-			alt = 0;
-		}
 	}
 
 	if (cw)
@@ -301,7 +308,8 @@ handle_transmission(void)
 		events.send("disable", "tnbutton", millis());
 		events.send("disable", "cwbox", millis());
 		events.send("disable", "altcwbox", millis());
-		events.send("TX", "count", millis());
+		if (TIMER)
+			events.send("TX", "count", millis());
 		if (rand_num) {
 			transmit_now = random(TRANSMIT_MIN,
 			    TRANSMIT_MAX) * ONE_SECOND;
@@ -317,7 +325,6 @@ handle_transmission(void)
 			    "rand", millis());
 		}
 		play = 1;
-		alt = 1;
 	}
 
 	if (hunting && play && !playing && !cw) {
@@ -349,6 +356,8 @@ handle_transmission(void)
 			events.send("enable", "altcwbox", millis());
 			if (!alt_cw)
 				events.send("enable", "cwbox", millis());
+			else
+				cw = !cw;
 			DPRINTF("End transmission", 0);
 			DPRINTF("", 0);
 			digitalWrite(BLUE_LED, LOW);
@@ -403,6 +412,8 @@ handle_connect(const String& var)
 	String box2 = "<input id=\"cwbox\" type=\"checkbox\"";
 	if (cw)
 		box2 += " checked";
+	if (alt_cw)
+		box2 += " disabled";
 	box2 += " onchange=\"toggle_cw(this)\" />";
 
 	String box3 = "<input id=\"altcwbox\" type=\"checkbox\"";
@@ -474,6 +485,12 @@ handle_connect(const String& var)
 	}
 	if (var == "CWBOX")
 		return box2;
+	if (var == "TX") {
+		if (TIMER)
+			return "---";
+		else
+			return "TX OFF";
+	}
 
 	return String();
 }
