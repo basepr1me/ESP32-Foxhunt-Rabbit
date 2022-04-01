@@ -1,0 +1,7 @@
+# TODO
+
+* Rename software to Rabbit Manager
+* Kill the stupid "you can't close the software during a hunt" junk
+* Upload to repository
+* Add the auto-hunt functionality
+* Probably never work in C# and windows if you really don't have to again :(
