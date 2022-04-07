@@ -31,8 +31,8 @@ Libraries
 XT_DAC_Audio:
 https://www.xtronical.com/the-dacaudio-library-download-and-installation/
 
-Morse:
-https://github.com/basepr1me/Morse
+ESP32-Morse-Code:
+https://github.com/basepr1me/ESP32-Morse-Code
 
 # Rabbit_Web_UI
 
