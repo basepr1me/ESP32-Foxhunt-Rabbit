@@ -82,6 +82,7 @@
 #define UPDATE		 0x03
 #define CRQST		 0x04
 #define ENABLE		 0x05
+#define DISABLE		 0x06
 #define ADDBUF		 4
 #define CALLS		 5
 
@@ -142,6 +143,7 @@ void			 pong(void);
 void			 send_delay(int);
 void			 send_control(void);
 void			 send_enable(void);
+void			 send_disable(void);
 void			 update_control(uint8_t []);
 
 unsigned long		 transmit_start_millis, green_start_millis;
@@ -149,7 +151,7 @@ unsigned long		 tx_current_millis, countdown_timer_millis;
 unsigned long		 countdown_millis, red_start_millis;
 
 int			 transmit_now = 0; /* don't delay first */
-int			 autoh, hunting = 1, playing = 0, play = 0, voice = 1;
+int			 autoh, hunting, playing = 0, play = 0, voice = 1;
 int			 transmit_end = 0, powered = 1, rand_num = 1, cw = 1;
 int			 send_handle_events = 0, transmit_new = 1, alt_cw = 1;
 int			 connected = 0, cw_ctl = 1;
@@ -165,11 +167,11 @@ wifievent(WiFiEvent_t e)
 {
 	switch(e) {
 	case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-		DPRINTF("Rabbit Remote Connected", 0);
+		DPRINTF("Rabbit remote connected", 0);
 		connected = 1;
 		break;
 	case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-		DPRINTF("Rabbit Remote Disconnected", 0);
+		DPRINTF("Rabbit remote disconnected", 0);
 		connected = 0;
 		break;
 	default:
@@ -183,11 +185,6 @@ setup()
 	/* disable brownout for startup */
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 	delay(1000);
-
-	/* start EEPROM and get state */
-	EEPROM.begin(EEPROM_S);
-	autoh = EEPROM.read(0);
-	hunting = autoh;
 
 	/* immediate pin setup, transmitter shouldn't be on */
 	pinMode(TRANSMIT, OUTPUT);
@@ -204,12 +201,22 @@ setup()
 	DPRINTF("Setup serial", 0);
 	DPRINTF("Setup transmitter", 0);
 
+	/* start EEPROM and get state */
+	EEPROM.begin(EEPROM_S);
+	autoh = EEPROM.read(0);
+	hunting = autoh;
+
+	if (autoh)
+		DPRINTF("Auto hunt enabled", 0);
+	else
+		DPRINTF("Auto hunt disabled", 0);
+
 	/* setup the DAC */
 	dac_cw_config.scale = DAC_CW_SCALE_2;
 	dac_cw_config.freq = 550;
 
 	morse_dac.dac_cw_setup(&dac_cw_config);
-	DPRINTF("DAC Configured", 0);
+	DPRINTF("DAC configured", 0);
 
 	/* setup LEDs */
 	pinMode(RED_LED, OUTPUT);
@@ -229,9 +236,9 @@ setup()
 	/* setup our AP */
 	WiFi.mode(WIFI_AP);
 	if (esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR))
-		DPRINTF("LR Mode Failed", 1);
+		DPRINTF("LR mode failed", 1);
 	else
-		DPRINTF("LR Mode Enabled", 1);
+		DPRINTF("LR mode enabled", 1);
 	WiFi.softAPConfig(local_ip, local_gateway, local_subnet);
 	WiFi.softAP(local_ssid, local_pass, channel, false, MAX_CLIENTS);
 	WiFi.onEvent(wifievent);
@@ -239,16 +246,13 @@ setup()
 	DPRINTF("Setup AP", 0);
 
 	server.begin(PORT);
-	DPRINTF("Started UDP Mode", 0);
+	DPRINTF("Started UDP mode", 0);
 
 	/* turning on the tranmitter is the final step */
 	digitalWrite(TRANSMIT_PWR, HIGH);
 	digitalWrite(RED_LED, HIGH);
-	DPRINTF("", 0);
 	DPRINTF("Transmitter powered on", 1);
-	DPRINTF("", 0);
 	DPRINTF("The rabbit is ready to run!", 0);
-	DPRINTF("", 0);
 
 	/* setup millis timers */
 	transmit_start_millis = millis();
@@ -319,6 +323,7 @@ handle_transmission(void)
 				transmit_now = TRANSMIT_DELAY * ONE_SECOND;
 		}
 		send_delay(transmit_now / ONE_SECOND);
+		send_disable();
 		play = 1;
 	}
 
@@ -356,7 +361,6 @@ handle_transmission(void)
 			else if (alt_cw)
 				cw_ctl = !cw_ctl;
 			DPRINTF("End transmission", 0);
-			DPRINTF("", 0);
 			digitalWrite(BLUE_LED, LOW);
 			digitalWrite(TRANSMIT, LOW);
 			transmit_start_millis = tx_current_millis;
@@ -436,6 +440,8 @@ process_packets(void)
 			break;
 		case (CRQST):
 			send_control();
+			if (playing)
+				send_disable();
 			break;
 		default:
 			break;
@@ -456,19 +462,19 @@ void
 update_control(uint8_t pkt[])
 {
 	if (DEBUG) {
-		Serial.print("Control: ");
+		Serial.print("Control received: ");
 		Serial.println(pkt[0], BIN);
 	}
 
 	/* always power off when requested */
 	powered = (pkt[0] >> SETPWR) & 1;
 
-	if (playing)
-		return;
+	/* if (playing) */
+	/* 	return; */
 
 	play = (pkt[0] >> SETPTT) & 1;
-	if (play)
-		return;
+	/* if (play) */
+	/* 	return; */
 
 	cw = pkt[0] & 1;
 
@@ -486,9 +492,13 @@ update_control(uint8_t pkt[])
 	rand_num = (pkt[0] >> SETRND) & 1;
 
 	if (autoh != (pkt[0] >> SETAUTO) & 1) {
-		autoh != autoh;
+		autoh = (pkt[0] >> SETAUTO) & 1;
 		EEPROM.write(0, autoh);
 		EEPROM.commit();
+		if (autoh)
+			DPRINTF("Auto hunt enabled", 0);
+		else
+			DPRINTF("Auto hunt disabled", 0);
 	}
 }
 
@@ -518,11 +528,11 @@ void
 send_enable(void)
 {
 	if (!connected) {
-		DPRINTF("Connection Failed", 0);
+		DPRINTF("Connection failed", 0);
 		return;
 	}
 
-	DPRINTF("Transmit Enable", 0);
+	DPRINTF("Manager enable", 0);
 
 	uint16_t sum;
 	uint8_t i = 0, j, cnt = 1;
@@ -545,10 +555,40 @@ send_enable(void)
 }
 
 void
+send_disable(void)
+{
+	if (!connected) {
+		DPRINTF("Connection failed", 0);
+		return;
+	}
+
+	DPRINTF("Manager disable", 0);
+
+	uint16_t sum;
+	uint8_t i = 0, j, cnt = 1;
+	uint8_t buf[cnt + ADDBUF];
+
+	buf[i++] = preval;
+	buf[i++] = DISABLE;
+	buf[i++] = cnt;
+	buf[i++] = 0;
+
+	for (j = 0; j < i; j++)
+		sum += buf[j];
+	fin = sum & 0xFF;
+
+	buf[i++] = fin;
+
+	server.beginPacket(server.remoteIP(), server.remotePort());
+	server.write(buf, cnt + ADDBUF);
+	server.endPacket();
+}
+
+void
 pong(void)
 {
 	if (!connected) {
-		DPRINTF("Connection Failed", 0);
+		DPRINTF("Connection failed", 0);
 		return;
 	}
 
@@ -578,11 +618,9 @@ void
 send_control(void)
 {
 	if (!connected) {
-		DPRINTF("Connection Failed", 0);
+		DPRINTF("Connection failed", 0);
 		return;
 	}
-
-	DPRINTF("Control Requested", 0);
 
 	uint16_t sum;
 	uint8_t i = 0, j, pkt = 0, cnt = 1;
@@ -600,8 +638,13 @@ send_control(void)
 		pkt |= GETPTT;
 	if (rand_num)
 		pkt |= GETRND;
+	if (autoh)
+		pkt |= GETAUTO;
 
-	pkt |= GETAUTO;
+	if (DEBUG) {
+		Serial.print("Control requested: ");
+		Serial.println(pkt, BIN);
+	}
 
 	buf[i++] = preval;
 	buf[i++] = CRQST;
@@ -625,11 +668,11 @@ void
 send_delay(int trans_delay)
 {
 	if (!connected) {
-		DPRINTF("Connection Failed", 0);
+		DPRINTF("Connection failed", 0);
 		return;
 	}
 
-	DPRINTF("Transmit Delay", 0);
+	DPRINTF("Transmit delay", 0);
 
 	uint16_t sum;
 	uint8_t i = 0, j, cnt = 1;
