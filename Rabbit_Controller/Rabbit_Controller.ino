@@ -108,6 +108,10 @@
 
 #define EEPROM_S	 1
 
+/* if the 8th bit is ever used, this is 103, not 39 */
+#define EEPROM_MAX	 39
+#define EEPROM_MIN	 4
+
 Morse			 morse_led(M_GPIO, RED_LED, WPM);
 Morse			 morse_dac(M_DAC, DAC_CHANNEL, WPM);
 
@@ -144,12 +148,13 @@ void			 send_delay(int);
 void			 send_control(void);
 void			 send_enable(void);
 void			 send_disable(void);
-void			 update_control(uint8_t []);
+void			 update_control(uint8_t, int);
 
 unsigned long		 transmit_start_millis, green_start_millis;
 unsigned long		 tx_current_millis, countdown_timer_millis;
 unsigned long		 countdown_millis, red_start_millis;
 
+uint8_t			 control;
 int			 transmit_now = 0; /* don't delay first */
 int			 autoh, hunting, playing = 0, play = 0, voice = 1;
 int			 transmit_end = 0, powered = 1, rand_num = 1, cw = 1;
@@ -182,6 +187,8 @@ wifievent(WiFiEvent_t e)
 void
 setup()
 {
+	int wrt = 0;
+
 	/* disable brownout for startup */
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 	delay(1000);
@@ -203,13 +210,15 @@ setup()
 
 	/* start EEPROM and get state */
 	EEPROM.begin(EEPROM_S);
-	autoh = EEPROM.read(0);
-	hunting = autoh;
+	control = EEPROM.read(0);
 
-	if (autoh)
-		DPRINTF("Auto hunt enabled", 0);
-	else
-		DPRINTF("Auto hunt disabled", 0);
+	/* start sanity check for first load on chip */
+	if (control > EEPROM_MAX || control < EEPROM_MIN) {
+		DPRINTF("Initializing EEPROM", 0);
+		control = EEPROM_MAX;
+		wrt = 1;
+	}
+	update_control(control, wrt);
 
 	/* setup the DAC */
 	dac_cw_config.scale = DAC_CW_SCALE_2;
@@ -262,6 +271,12 @@ setup()
 	/* re-enable brownout */
 	delay(1000);
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
+
+	/* give auto hunt a bit to warm up */
+	if (hunting) {
+		DPRINTF("String the hunt", 0);
+		delay(8000);
+	}
 }
 
 void
@@ -436,7 +451,7 @@ process_packets(void)
 			transmit_now = cpkt[0] * 1000;
 			break;
 		case (UPDATE):
-			update_control(cpkt);
+			update_control(cpkt[0], 1);
 			break;
 		case (CRQST):
 			send_control();
@@ -459,46 +474,43 @@ done:
 }
 
 void
-update_control(uint8_t pkt[])
+update_control(uint8_t pkt, int wrt)
 {
 	if (DEBUG) {
 		Serial.print("Control received: ");
-		Serial.println(pkt[0], BIN);
+		Serial.println(pkt, BIN);
 	}
 
 	/* always power off when requested */
-	powered = (pkt[0] >> SETPWR) & 1;
+	powered = (pkt >> SETPWR) & 1;
 
-	/* if (playing) */
-	/* 	return; */
+	play = (pkt >> SETPTT) & 1;
 
-	play = (pkt[0] >> SETPTT) & 1;
-	/* if (play) */
-	/* 	return; */
+	cw = pkt & 1;
 
-	cw = pkt[0] & 1;
-
-	alt_cw = (pkt[0] >> SETALT) & 1;
+	alt_cw = (pkt >> SETALT) & 1;
 	if (cw)
 		cw_ctl = 1;
 	else if (!cw)
 		cw_ctl = 0;
 
-	hunting = (pkt[0] >> SETHUNT) & 1;
+	hunting = (pkt >> SETHUNT) & 1;
 	if (!hunting) {
 		transmit_new = 1;
 		transmit_now = 0;
 	}
-	rand_num = (pkt[0] >> SETRND) & 1;
+	rand_num = (pkt >> SETRND) & 1;
 
-	if (autoh != (pkt[0] >> SETAUTO) & 1) {
-		autoh = (pkt[0] >> SETAUTO) & 1;
-		EEPROM.write(0, autoh);
+	autoh = (pkt >> SETAUTO) & 1;
+	if (autoh)
+		DPRINTF("Auto hunt enabled", 0);
+	else
+		DPRINTF("Auto hunt disabled", 0);
+
+	if (wrt) {
+		DPRINTF("Updated EEPROM", 0);
+		EEPROM.write(0, pkt);
 		EEPROM.commit();
-		if (autoh)
-			DPRINTF("Auto hunt enabled", 0);
-		else
-			DPRINTF("Auto hunt disabled", 0);
 	}
 }
 
