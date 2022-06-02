@@ -51,7 +51,7 @@
 
 #include "audio_call.h"
 
-#define DEBUG		 0
+#define DEBUG		 1
 
 #define MAX_CLIENTS	 8
 
@@ -109,7 +109,8 @@
 #define EEPROM_S	 1
 
 /* if the 8th bit is ever used, this is 103, not 39 */
-#define EEPROM_MAX	 39
+#define EEPROM_SET	 39
+#define EEPROM_MAX	 127
 #define EEPROM_MIN	 4
 
 Morse			 morse_led(M_GPIO, RED_LED, WPM);
@@ -212,10 +213,15 @@ setup()
 	EEPROM.begin(EEPROM_S);
 	control = EEPROM.read(0);
 
+	if (DEBUG) {
+		Serial.print("Control read: ");
+		Serial.println(control, BIN);
+	}
+
 	/* start sanity check for first load on chip */
 	if (control > EEPROM_MAX || control < EEPROM_MIN) {
 		DPRINTF("Initializing EEPROM", 0);
-		control = EEPROM_MAX;
+		control = EEPROM_SET;
 		wrt = 1;
 	}
 	update_control(control, wrt);
@@ -272,9 +278,10 @@ setup()
 	delay(1000);
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 
+	hunting = (control >> SETAUTO) & 1;
 	/* give auto hunt a bit to warm up */
 	if (hunting) {
-		DPRINTF("String the hunt", 0);
+		DPRINTF("Starting the hunt", 0);
 		delay(8000);
 	}
 }
@@ -508,9 +515,12 @@ update_control(uint8_t pkt, int wrt)
 		DPRINTF("Auto hunt disabled", 0);
 
 	if (wrt) {
-		DPRINTF("Updated EEPROM", 0);
 		EEPROM.write(0, pkt);
 		EEPROM.commit();
+		if (DEBUG) {
+			Serial.print("EEPROM written: ");
+			Serial.println(pkt, BIN);
+		}
 	}
 }
 
